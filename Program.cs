@@ -62,10 +62,10 @@ namespace FixStuckWorkers
 
             var app = new CommandLineApplication
             {
-                Name = "FixStuckWorkers",
-                Description = string.Format("Analyzes and fixes 'stuck' workers in Hudl encoder pools. Stuck is defined as less than {0}% CPU for {1} hours.",
+                Name = "find-idle-instances",
+                Description = string.Format("Identifies and optionally terminates idle workers. Idle is defined as less than {0}% CPU for {1} hours.",
                     MaxBadCpuPercent, MetricRetrievalInHours),
-                FullName = "FixStuckWorkers - fixing your jank/frozen AWS servers since 2016"
+                FullName = "find-idle-instances - fixing your idle AWS servers since 2016"
             };
 
 
