@@ -5,7 +5,9 @@
   "tags": [ "" ],
   "projectUrl": "",
   "licenseUrl": "",
-
+  "exclude": [
+    "artifacts"
+  ],
   "compilationOptions": {
     "emitEntryPoint": true
   },
@@ -31,6 +33,5 @@
         "System.Threading": "4.0.11-beta-23516"
       }
     }
-  },
-  "userSecretsId": "aspnet5-find-idle-instances-20160215103936"
+  }
 }
