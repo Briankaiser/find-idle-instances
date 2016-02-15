@@ -187,6 +187,8 @@ namespace FixStuckWorkers
 
             var instanceResults = new InstanceResults();
             
+            //this was written this way to facilite better control over throttling (vs Parallel.ForEach with MaxConcurrency)
+            //in addition a future enhancement could be batching instances to GetMatricStatistics call
             await instances.ForEachAsync(MaxMetricConcurrency, async (instance) =>
             {
                 //var instance = instances[i];
@@ -228,6 +230,9 @@ namespace FixStuckWorkers
                     instanceResults.GoodInstances.Count;
 
                 Console.Write("\rProcessed {0}/{1} instances.", processed, instances.Count);
+
+                //depending on your AWS setup you might need to throttle these calls more aggressively
+                //Thread.Sleep(50);
             });
 
             Console.WriteLine();
