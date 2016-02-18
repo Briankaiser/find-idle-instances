@@ -109,7 +109,7 @@ namespace FixStuckWorkers
             });
             app.Command("terminate", c =>
             {
-                c.Description = "TODO: Terminates stuck instances.";
+                c.Description = "Terminates stuck instances.";
                 var accessOption = c.Option("--accesskey", "AWS Access Key (required)", CommandOptionType.SingleValue);
                 var secretOption = c.Option("--secretkey", "AWS Secret Key (required)", CommandOptionType.SingleValue);
                 var nameOption = c.Option("--name", "Name of worker to search on (required)", CommandOptionType.SingleValue);
@@ -133,14 +133,87 @@ namespace FixStuckWorkers
                     var instanceResults = await FindInstancesAndCategorize();
                     DisplayInstanceResults(instanceResults);
 
+                    if(instanceResults.BadInstances.Count == 0)
+                    {
+                        Console.WriteLine("No bad instances present.");
+                        return 0;
+                    }
+
                     //confirm terminate terminate
+                    Console.WriteLine();
+                    Console.WriteLine("Terminate Instances? (y/n)  ");
+                    char termChar = 'x';
+                    while(termChar != 'y' && termChar != 'n')
+                    {
+                        termChar = Console.ReadKey().KeyChar;
+                    }
+                    if (termChar != 'y')
+                    {
+                        return 0;
+                    }
 
                     //terminate instances
+                    await TerminateInstances(instanceResults.BadInstances.ToList());
+
+
 
                     return 0;
                 });
             });
 
+            app.Command("reboot", c =>
+            {
+                c.Description = "Reboot stuck instances.";
+                var accessOption = c.Option("--accesskey", "AWS Access Key (required)", CommandOptionType.SingleValue);
+                var secretOption = c.Option("--secretkey", "AWS Secret Key (required)", CommandOptionType.SingleValue);
+                var nameOption = c.Option("--name", "Name of worker to search on (required)", CommandOptionType.SingleValue);
+                var regionOption = c.Option("--region", "AWS region name (optional)", CommandOptionType.SingleValue);
+                var showGoodOption = c.Option("--show-good", "Display 'good' instances in results (optional)", CommandOptionType.NoValue);
+                var showUnknownOption = c.Option("--show-unknown", "Display 'unknown' instances in results (optional)", CommandOptionType.NoValue);
+
+                c.OnExecute(async () =>
+                {
+                    bool success = ValidateAndSetOptions(accessOption, secretOption, nameOption, regionOption, showGoodOption, showUnknownOption);
+                    if (!success)
+                    {
+                        c.ShowHelp("reboot");
+                        return 1;
+                    }
+
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("Running ({0})...", Name);
+                    Console.ForegroundColor = ConsoleColor.White;
+
+                    var instanceResults = await FindInstancesAndCategorize();
+                    DisplayInstanceResults(instanceResults);
+
+                    if (instanceResults.BadInstances.Count == 0)
+                    {
+                        Console.WriteLine("No bad instances present.");
+                        return 0;
+                    }
+
+                    //confirm terminate terminate
+                    Console.WriteLine();
+                    Console.WriteLine("Reboot Instances? (y/n)  ");
+                    char termChar = 'x';
+                    while (termChar != 'y' && termChar != 'n')
+                    {
+                        termChar = Console.ReadKey().KeyChar;
+                    }
+                    if (termChar != 'y')
+                    {
+                        return 0;
+                    }
+
+                    //terminate instances
+                    await RebootInstances(instanceResults.BadInstances.ToList());
+
+
+
+                    return 0;
+                });
+            });
             return app.Execute(args);
         }
         private static bool ValidateAndSetOptions(CommandOption accessOption, CommandOption secretOption, CommandOption nameOption,
@@ -299,7 +372,67 @@ namespace FixStuckWorkers
 
         }
 
+        private static async Task TerminateInstances(List<InstanceResult> badInstances )
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Terminating Instances!");
+            Console.WriteLine("----------------------");
+            badInstances.ForEach(i => Console.WriteLine(i.Name));
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.White;
 
+            AmazonEC2Client client = new AmazonEC2Client(AccessKey, SecretKey, Region);
+
+            //go sync so we can take it slower
+            int processed = 0;
+            foreach(var instance in badInstances.Select(i=>i.Name))
+            {
+                var request = new TerminateInstancesRequest()
+                {
+                    InstanceIds = new List<string> {  instance},
+                };
+                var response = await client.TerminateInstancesAsync(request);
+
+                Console.Write("\rProcessed {0}/{1} instances.", ++processed, badInstances.Count);
+            }
+            //TODO: support paging with tokens
+
+            Console.WriteLine();
+            Console.WriteLine("Complete");
+            
+        }
+
+        private static async Task RebootInstances(List<InstanceResult> badInstances)
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Rebooting Instances!");
+            Console.WriteLine("----------------------");
+            badInstances.ForEach(i => Console.WriteLine(i.Name));
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.White;
+
+            AmazonEC2Client client = new AmazonEC2Client(AccessKey, SecretKey, Region);
+
+            //go sync so we can take it slower
+            //if this list starts to get too large we could easily do async in batches
+            int processed = 0;
+            foreach (var instance in badInstances.Select(i => i.Name))
+            {
+                var request = new RebootInstancesRequest()
+                {
+                    InstanceIds = new List<string> { instance },
+                };
+                var response = await client.RebootInstancesAsync(request);
+
+                Console.Write("\rProcessed {0}/{1} instances.", ++processed, badInstances.Count);
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Complete");
+
+        }
     }
     internal static class AsyncHelpers
     {
