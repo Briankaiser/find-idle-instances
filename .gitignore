@@ -4,3 +4,4 @@ artifacts/
 *.suo
 *.user
 *.lock.json
+bin/
