@@ -1,5 +1,6 @@
 obj/
 artifacts/
+bin/
 .vs/
 *.suo
 *.user

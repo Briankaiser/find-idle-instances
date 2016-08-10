@@ -3,13 +3,12 @@ using Amazon.CloudWatch;
 using Amazon.CloudWatch.Model;
 using Amazon.EC2;
 using Amazon.EC2.Model;
-using Microsoft.Framework.Runtime.Common.CommandLine;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.CommandLineUtils;
 
 namespace FixStuckWorkers
 {

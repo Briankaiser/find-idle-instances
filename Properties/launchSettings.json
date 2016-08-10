@@ -1,3 +1,8 @@
 {
-  "profiles": {}
+  "profiles": {
+    "find-idle-instances": {
+      "commandName": "find-idle-instances",
+      "commandLineArgs": "reboot --accesskey XXXX --secretkey \"XXXX\" --name \"PROD-farm-stream*\" --region \"us-east-1\""
+    }
+  }
 }

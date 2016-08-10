@@ -2,21 +2,22 @@
   "version": "1.0.0-*",
   "description": "Detects and optionally terminates idle AWS instances by tag:name",
   "authors": [ "brian.kaiser" ],
-  "tags": [ "" ],
-  "projectUrl": "",
-  "licenseUrl": "",
-  "exclude": [
-    "artifacts"
-  ],
-  "compilationOptions": {
-    "emitEntryPoint": true
+  "buildOptions": {
+    "emitEntryPoint": true,
+    "compile": {
+      "exclude": [ "artifacts" ]
+    },
+    "debugType": "portable"
   },
-
   "dependencies": {
-    "AWSSDK.CloudWatch": "3.2.2-beta",
-    "AWSSDK.EC2": "3.2.2-beta",
-    "Microsoft.Framework.CommandLineUtils.Sources": "1.0.0-beta5",
-    "System.Threading.Tasks.Parallel": "4.0.1-beta-23516",
+    "AWSSDK.CloudWatch": "3.2.6-beta",
+    "AWSSDK.EC2": "3.2.6-beta",
+    "System.Threading.Tasks.Parallel": "4.0.1",
+    "Microsoft.Extensions.CommandLineUtils": "1.0.0",
+    "Microsoft.NETCore.App": {
+      "type": "platform",
+      "version": "1.0.0"
+    }
   },
 
   "commands": {
@@ -24,14 +25,8 @@
   },
 
   "frameworks": {
-    "dnxcore50": {
-      "dependencies": {
-        "Microsoft.CSharp": "4.0.1-beta-23516",
-        "System.Collections": "4.0.11-beta-23516",
-        "System.Console": "4.0.0-beta-23516",
-        "System.Linq": "4.0.1-beta-23516",
-        "System.Threading": "4.0.11-beta-23516"
-      }
+    "netcoreapp1.0": {
+      "imports": "dnxcore50"
     }
   }
 }
