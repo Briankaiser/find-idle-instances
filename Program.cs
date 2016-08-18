@@ -12,20 +12,52 @@ using Microsoft.Extensions.CommandLineUtils;
 
 namespace FixStuckWorkers
 {
+
+    internal class InstanceDescription
+    {
+        public string InstanceId { get; private set; }
+        public string Hostname { get; private set; }
+        public InstanceDescription(string instanceId, string instanceHostname)
+        {
+            InstanceId = instanceId;
+            Hostname = instanceHostname;
+        }
+
+        public InstanceDescription(Instance instance)
+        {
+            InstanceId = instance.InstanceId;
+            Hostname = instance.PublicDnsName;
+        }
+    }
+
     internal class InstanceResult
     {
-        public string Name { get; private set; }
+        public string Name => $"{InstanceDescription.InstanceId} - {InstanceDescription.Hostname}";
+        public InstanceDescription InstanceDescription { get; private set; }
         public double Cpu { get; private set; }
-        public InstanceResult(string name, double cpu)
+        public InstanceResult(InstanceDescription instanceDescription, double cpu)
         {
-            Name = name;
+            InstanceDescription = instanceDescription;
             Cpu = cpu;
         }
         public override string ToString()
         {
-            return Name + "\t\t" + Cpu.ToString("0.00");
+            return Name + "\t\t\t" + Cpu.ToString("0.00");
         }
     }
+
+    internal class CommandOptions
+    {
+        public CommandOption AccessKey { get; set; }
+        public CommandOption SecretKey { get; set; }
+        public CommandOption Name { get; set; }
+        public CommandOption Region { get; set; }
+        public CommandOption SecurityGroup { get; set; }
+        public CommandOption ShowGoodInstances { get; set; }
+        public CommandOption ShowUnknownInstances { get; set; }
+        public CommandOption IsClassic { get; set; }
+    }
+
     internal class InstanceResults
     {
         public ConcurrentBag<InstanceResult> BadInstances { get; set; }
@@ -52,13 +84,13 @@ namespace FixStuckWorkers
         private static string SecretKey { get; set; }
         private static string Name { get; set; }
         private static RegionEndpoint Region { get; set; }
+        private static string SecurityGroup { get; set; }
         private static bool ShowGoodInstances { get; set; }
         private static bool ShowUnknownInstances { get; set; }
+        private static bool IsClassic { get; set; }
 
         public static int Main(string[] args)
         {
-
-
             var app = new CommandLineApplication
             {
                 Name = "find-idle-instances",
@@ -78,17 +110,12 @@ namespace FixStuckWorkers
             app.Command("find", c =>
             {
                 c.Description = "Finds stuck instances";
-                var accessOption = c.Option("--accesskey", "AWS Access Key (required)", CommandOptionType.SingleValue);
-                var secretOption = c.Option("--secretkey", "AWS Secret Key (required)", CommandOptionType.SingleValue);
-                var nameOption = c.Option("--name", "Name of worker to search on (required)", CommandOptionType.SingleValue);
-                var regionOption = c.Option("--region", "AWS region name (optional)", CommandOptionType.SingleValue);
-                var showGoodOption = c.Option("--show-good", "Display 'good' instances in results (optional)", CommandOptionType.NoValue);
-                var showUnknownOption = c.Option("--show-unknown", "Display 'unknown' instances in results (optional)", CommandOptionType.NoValue);
+                var commandOptions = GetOptions(c);
 
                 c.OnExecute(async () =>
                 {
-                    bool success = ValidateAndSetOptions(accessOption, secretOption, nameOption, regionOption, showGoodOption, showUnknownOption);
-                    if(!success)
+                    bool success = ValidateAndSetOptions(commandOptions);
+                    if (!success)
                     {
                         c.ShowHelp("find");
                         return 1;
@@ -109,16 +136,11 @@ namespace FixStuckWorkers
             app.Command("terminate", c =>
             {
                 c.Description = "Terminates stuck instances.";
-                var accessOption = c.Option("--accesskey", "AWS Access Key (required)", CommandOptionType.SingleValue);
-                var secretOption = c.Option("--secretkey", "AWS Secret Key (required)", CommandOptionType.SingleValue);
-                var nameOption = c.Option("--name", "Name of worker to search on (required)", CommandOptionType.SingleValue);
-                var regionOption = c.Option("--region", "AWS region name (optional)", CommandOptionType.SingleValue);
-                var showGoodOption = c.Option("--show-good", "Display 'good' instances in results (optional)", CommandOptionType.NoValue);
-                var showUnknownOption = c.Option("--show-unknown", "Display 'unknown' instances in results (optional)", CommandOptionType.NoValue);
+                var commandOptions = GetOptions(c);
 
                 c.OnExecute(async () =>
                 {
-                    bool success = ValidateAndSetOptions(accessOption, secretOption, nameOption, regionOption, showGoodOption, showUnknownOption);
+                    bool success = ValidateAndSetOptions(commandOptions);
                     if (!success)
                     {
                         c.ShowHelp("terminate");
@@ -132,7 +154,7 @@ namespace FixStuckWorkers
                     var instanceResults = await FindInstancesAndCategorize();
                     DisplayInstanceResults(instanceResults);
 
-                    if(instanceResults.BadInstances.Count == 0)
+                    if (instanceResults.BadInstances.Count == 0)
                     {
                         Console.WriteLine("No bad instances present.");
                         return 0;
@@ -142,7 +164,7 @@ namespace FixStuckWorkers
                     Console.WriteLine();
                     Console.WriteLine("Terminate Instances? (y/n)  ");
                     char termChar = 'x';
-                    while(termChar != 'y' && termChar != 'n')
+                    while (termChar != 'y' && termChar != 'n')
                     {
                         termChar = Console.ReadKey().KeyChar;
                     }
@@ -163,16 +185,11 @@ namespace FixStuckWorkers
             app.Command("reboot", c =>
             {
                 c.Description = "Reboot stuck instances.";
-                var accessOption = c.Option("--accesskey", "AWS Access Key (required)", CommandOptionType.SingleValue);
-                var secretOption = c.Option("--secretkey", "AWS Secret Key (required)", CommandOptionType.SingleValue);
-                var nameOption = c.Option("--name", "Name of worker to search on (required)", CommandOptionType.SingleValue);
-                var regionOption = c.Option("--region", "AWS region name (optional)", CommandOptionType.SingleValue);
-                var showGoodOption = c.Option("--show-good", "Display 'good' instances in results (optional)", CommandOptionType.NoValue);
-                var showUnknownOption = c.Option("--show-unknown", "Display 'unknown' instances in results (optional)", CommandOptionType.NoValue);
+                var commandOptions = GetOptions(c);
 
                 c.OnExecute(async () =>
                 {
-                    bool success = ValidateAndSetOptions(accessOption, secretOption, nameOption, regionOption, showGoodOption, showUnknownOption);
+                    bool success = ValidateAndSetOptions(commandOptions);
                     if (!success)
                     {
                         c.ShowHelp("reboot");
@@ -215,24 +232,38 @@ namespace FixStuckWorkers
             });
             return app.Execute(args);
         }
-        private static bool ValidateAndSetOptions(CommandOption accessOption, CommandOption secretOption, CommandOption nameOption,
-            CommandOption regionOption, CommandOption showGoodOption, CommandOption showUnknownOption)
+        private static CommandOptions GetOptions(CommandLineApplication c)
         {
-            if (!accessOption.HasValue())
+            return new CommandOptions
+            {
+                AccessKey = c.Option("--accesskey", "AWS Access Key (required)", CommandOptionType.SingleValue),
+                SecretKey = c.Option("--secretkey", "AWS Secret Key (required)", CommandOptionType.SingleValue),
+                Name = c.Option("--name", "Name of worker to search on (required)", CommandOptionType.SingleValue),
+                Region = c.Option("--region", "AWS region name (optional)", CommandOptionType.SingleValue),
+                SecurityGroup = c.Option("--securityGroup", "SecurityGroup name associated with the instance (Optional but recommended!)", CommandOptionType.SingleValue),
+                ShowGoodInstances = c.Option("--show-good", "Display 'good' instances in results (optional)", CommandOptionType.NoValue),
+                ShowUnknownInstances = c.Option("--show-unknown", "Display 'unknown' instances in results (optional)", CommandOptionType.NoValue),
+                IsClassic = c.Option("--IsClassic", "Look for instances that are not in a VPC (optional)", CommandOptionType.NoValue)
+            };
+        }
+
+        private static bool ValidateAndSetOptions(CommandOptions options)
+        {
+            if (!options.AccessKey.HasValue())
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("AccessKey is required.");
                 Console.ForegroundColor = ConsoleColor.White;
                 return false;
             }
-            if (!secretOption.HasValue())
+            if (!options.SecretKey.HasValue())
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("SecretKey is required.");
                 Console.ForegroundColor = ConsoleColor.White;
                 return false;
             }
-            if (!nameOption.HasValue())
+            if (!options.Name.HasValue())
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("Name is required.");
@@ -241,14 +272,15 @@ namespace FixStuckWorkers
             }
 
 
-            AccessKey = accessOption.Value();
-            SecretKey = secretOption.Value();
-            Name = nameOption.Value();
-            ShowGoodInstances = showGoodOption.HasValue();
-            ShowUnknownInstances = showUnknownOption.HasValue();
+            AccessKey = options.AccessKey.Value();
+            SecretKey = options.SecretKey.Value();
+            Name = options.Name.Value();
+            ShowGoodInstances = options.ShowGoodInstances.HasValue();
+            ShowUnknownInstances = options.ShowUnknownInstances.HasValue();
+            IsClassic = options.IsClassic.HasValue();
 
-            Region = string.IsNullOrWhiteSpace(regionOption.Value()) ? RegionEndpoint.USEast1 : RegionEndpoint.GetBySystemName(regionOption.Value());
-
+            Region = string.IsNullOrWhiteSpace(options.Region.Value()) ? RegionEndpoint.USEast1 : RegionEndpoint.GetBySystemName(options.Region.Value());
+            SecurityGroup = string.IsNullOrWhiteSpace(options.SecurityGroup.Value()) ? null : options.SecurityGroup.Value().Trim();
             return true;
         }
 
@@ -258,7 +290,7 @@ namespace FixStuckWorkers
             AmazonCloudWatchClient cwClient = new AmazonCloudWatchClient(AccessKey, SecretKey, Region);
 
             var instanceResults = new InstanceResults();
-            
+
             //this was written this way to facilite better control over throttling (vs Parallel.ForEach with MaxConcurrency)
             //in addition a future enhancement could be batching instances to GetMatricStatistics call
             await instances.ForEachAsync(MaxMetricConcurrency, async (instance) =>
@@ -268,7 +300,7 @@ namespace FixStuckWorkers
                 var dim = new Dimension()
                 {
                     Name = "InstanceId",
-                    Value = instance,
+                    Value = instance.InstanceId,
                 };
 
                 var request = new GetMetricStatisticsRequest()
@@ -311,21 +343,34 @@ namespace FixStuckWorkers
             return instanceResults;
         }
 
-        private static async Task<List<string>> FindInstances()
+        private static async Task<List<InstanceDescription>> FindInstances()
         {
             AmazonEC2Client client = new AmazonEC2Client(AccessKey, SecretKey, Region);
+
+            var filters = new List<Filter>()
+            {
+                new Filter("tag:Name", new List<string> { Name }),
+                new Filter("instance-state-name",new List<string> { "running" }),
+            };
+            if (!string.IsNullOrWhiteSpace(SecurityGroup))
+            {
+                if (IsClassic)
+                {
+                    filters.Add(new Filter("group-name", new List<string> { SecurityGroup }));
+                }
+                else
+                {
+                    filters.Add(new Filter("instance.group-name", new List<string> { SecurityGroup }));
+                }
+            }
 
             //TODO: support paging with tokens
             var request = new DescribeInstancesRequest()
             {
-               Filters = new List<Filter>()
-               {
-                   new Filter("tag:Name", new List<string> { Name }),
-                   new Filter("instance-state-name",new List<string> { "running" }),
-               },
+                Filters = filters
             };
             var response = await client.DescribeInstancesAsync(request);
-            var instances = response.Reservations.SelectMany(r => r.Instances).Select(i => i.InstanceId).ToList();
+            var instances = response.Reservations.SelectMany(r => r.Instances).Select(i => new InstanceDescription(i)).ToList();
             Console.WriteLine();
             Console.WriteLine("Found {0} matching instances.", instances.Count);
             return instances;
@@ -337,8 +382,8 @@ namespace FixStuckWorkers
             if (ShowGoodInstances)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Good Instances ({0})\tCPU%", results.GoodInstances.Count);
-                Console.WriteLine("============================");
+                Console.WriteLine("Good Instances ({0})\t\t\t\t\t\t\t\tCPU%", results.GoodInstances.Count);
+                Console.WriteLine("=====================================================================================");
                 foreach (var result in results.GoodInstances)
                 {
                     Console.WriteLine(result);
@@ -348,8 +393,8 @@ namespace FixStuckWorkers
             if (ShowUnknownInstances)
             {
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine("Unknown Instances ({0})\tCPU%", results.UnknownInstances.Count);
-                Console.WriteLine("============================");
+                Console.WriteLine("Unknown Instances ({0})\t\t\t\t\t\t\t\tCPU%", results.UnknownInstances.Count);
+                Console.WriteLine("=================================================================================");
                 foreach (var result in results.UnknownInstances)
                 {
 
@@ -359,11 +404,11 @@ namespace FixStuckWorkers
             }
 
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Bad Instances ({0})\tCPU%", results.BadInstances.Count);
-            Console.WriteLine("============================");
+            Console.WriteLine("Bad Instances ({0})\t\t\t\t\t\t\t\tCPU%", results.BadInstances.Count);
+            Console.WriteLine("=====================================================================================");
             foreach (var result in results.BadInstances)
             {
-                Console.WriteLine( result);
+                Console.WriteLine(result);
             }
             Console.WriteLine("");
 
@@ -371,7 +416,7 @@ namespace FixStuckWorkers
 
         }
 
-        private static async Task TerminateInstances(List<InstanceResult> badInstances )
+        private static async Task TerminateInstances(List<InstanceResult> badInstances)
         {
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Red;
@@ -385,11 +430,11 @@ namespace FixStuckWorkers
 
             //go sync so we can take it slower
             int processed = 0;
-            foreach(var instance in badInstances.Select(i=>i.Name))
+            foreach (var instance in badInstances.Select(i => i.Name))
             {
                 var request = new TerminateInstancesRequest()
                 {
-                    InstanceIds = new List<string> {  instance},
+                    InstanceIds = new List<string> { instance },
                 };
                 var response = await client.TerminateInstancesAsync(request);
 
@@ -399,7 +444,7 @@ namespace FixStuckWorkers
 
             Console.WriteLine();
             Console.WriteLine("Complete");
-            
+
         }
 
         private static async Task RebootInstances(List<InstanceResult> badInstances)
@@ -441,7 +486,8 @@ namespace FixStuckWorkers
         {
             return Task.WhenAll(
                 from partition in Partitioner.Create(source).GetPartitions(dop)
-                select Task.Run(async delegate {
+                select Task.Run(async delegate
+                {
                     using (partition)
                         while (partition.MoveNext())
                             await body(partition.Current).ContinueWith(t =>
