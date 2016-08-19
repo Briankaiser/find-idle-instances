@@ -430,7 +430,7 @@ namespace FixStuckWorkers
 
             //go sync so we can take it slower
             int processed = 0;
-            foreach (var instance in badInstances.Select(i => i.Name))
+            foreach (var instance in badInstances.Select(i => i.InstanceDescription.InstanceId))
             {
                 var request = new TerminateInstancesRequest()
                 {
@@ -462,7 +462,7 @@ namespace FixStuckWorkers
             //go sync so we can take it slower
             //if this list starts to get too large we could easily do async in batches
             int processed = 0;
-            foreach (var instance in badInstances.Select(i => i.Name))
+            foreach (var instance in badInstances.Select(i => i.InstanceDescription.InstanceId))
             {
                 var request = new RebootInstancesRequest()
                 {
