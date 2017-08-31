@@ -11,11 +11,21 @@ reboot)
 	command+=" reboot"
 	;;
 *)
-	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg} {use1|apse2|euw1}"
+	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg|phoenix-reel-concat|phoenix-html-effects|phoenix-timeline-item} {use1|apse2|euw1}"
 	exit 1
 esac
+command+=" $keys "
+if [[ $2 =~ stream-* ]]; then
+	command+="--securityGroup prod-streamworker"
+elif [ "$2" = "phoenix-reel-concat" ]; then
+	command+="--securityGroup prod-phoenix-reel-concat"
+elif [ "$2" = "phoenix-timeline-item" ]; then
+	command+="--securityGroup prod-phoenix-timeline-item"
+elif [ "$2" = "phoenix-html-effects" ]; then
+	command+="--securityGroup prod-phoenix-html-effects"
+fi
 
-command+=" $keys --securityGroup prod-streamworker"
+
 
 
 case "$2" in
@@ -28,8 +38,17 @@ stream-med)
 stream)
 	command+=" --name prod-farm-stream"
 	;;
+phoenix-reel-concat)
+	command+=" --name prod-farm-phoenix-reel-concat"
+	;;
+phoenix-html-effects)
+	command+=" --name prod-farm-phoenix-html-effects"
+	;;
+phoenix-timeline-item)
+	command+=" --name prod-farm-phoenix-timeline-item"
+	;;
 *)
-	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg} {use1|apse2|euw1}"
+	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg|phoenix-reel-concat|phoenix-html-effects|phoenix-timeline-item} {use1|apse2|euw1}"
 	exit 1
 esac
 
@@ -43,7 +62,7 @@ euw1)
 use1)
 	;;
 *)
-	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg} {use1|apse2|euw1}"
+	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg|phoenix-reel-concat|phoenix-html-effects|phoenix-timeline-item} {use1|apse2|euw1}"
 	exit 1
 esac
 echo "$command"
