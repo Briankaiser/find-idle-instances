@@ -378,42 +378,61 @@ namespace FixStuckWorkers
 
         private static void DisplayInstanceResults(InstanceResults results)
         {
-            Console.WriteLine("");
+            var hasBadInstances = results.BadInstances != null && results.BadInstances.Count > 0;
+            if (ShowGoodInstances || ShowUnknownInstances || hasBadInstances)
+            {
+                Console.WriteLine("");
+            }
             if (ShowGoodInstances)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Good Instances ({0})\t\t\t\t\t\t\t\tCPU%", results.GoodInstances.Count);
+                WriteStat($"Good Instances ({results.GoodInstances.Count})", "CPU%");
                 Console.WriteLine("=====================================================================================");
                 foreach (var result in results.GoodInstances)
                 {
-                    Console.WriteLine(result);
+                    WriteStat(result.Name, result.Cpu);
                 }
                 Console.WriteLine("");
             }
             if (ShowUnknownInstances)
             {
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine("Unknown Instances ({0})\t\t\t\t\t\t\t\tCPU%", results.UnknownInstances.Count);
+                WriteStat($"Unknown Instances ({results.UnknownInstances.Count})", "CPU%");
                 Console.WriteLine("=================================================================================");
                 foreach (var result in results.UnknownInstances)
                 {
-
-                    Console.WriteLine(result);
+                    WriteStat(result.Name, result.Cpu);
                 }
                 Console.WriteLine("");
             }
 
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Bad Instances ({0})\t\t\t\t\t\t\t\tCPU%", results.BadInstances.Count);
-            Console.WriteLine("=====================================================================================");
-            foreach (var result in results.BadInstances)
+            if (hasBadInstances)
             {
-                Console.WriteLine(result);
+                Console.ForegroundColor = ConsoleColor.Red;
+                WriteStat($"Bad Instances ({results.BadInstances.Count})", "CPU%");
+                Console.WriteLine("=====================================================================================");
+                foreach (var result in results.BadInstances)
+                {
+                    WriteStat(result.Name, result.Cpu);
+                }
+                Console.WriteLine("");
             }
-            Console.WriteLine("");
 
             Console.ForegroundColor = ConsoleColor.White;
 
+        }
+
+        private static void WriteStat(string label, double stat)
+        {
+            WriteStat(label, stat.ToString("##0.00"));
+        }
+
+        private static void WriteStat(string label, string stat)
+        {
+            Console.Write(label);
+            Console.CursorLeft = (85 - stat.Length);
+            Console.Write(stat);
+            Console.WriteLine();
         }
 
         private static async Task TerminateInstances(List<InstanceResult> badInstances)
