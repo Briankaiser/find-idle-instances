@@ -11,7 +11,7 @@ reboot)
 	command+=" reboot"
 	;;
 *)
-	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg|phoenix-reel-concat|phoenix-html-effects|phoenix-timeline-item} {use1|apse2|euw1}"
+	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg|phoenix-reel-concat|phoenix-html-effects|phoenix-timeline-item|phoenix-privacy} {use1|apse2|euw1}"
 	exit 1
 esac
 command+=" $keys "
@@ -23,6 +23,8 @@ elif [ "$2" = "phoenix-timeline-item" ]; then
 	command+="--securityGroup prod-phoenix-timeline-item"
 elif [ "$2" = "phoenix-html-effects" ]; then
 	command+="--securityGroup prod-phoenix-html-effects"
+elif [ "$2" = "phoenix-privacy" ]; then
+	command+="--securityGroup prod-phoenix-privacy"
 fi
 
 
@@ -47,8 +49,11 @@ phoenix-html-effects)
 phoenix-timeline-item)
 	command+=" --name prod-farm-phoenix-timeline-item"
 	;;
+phoenix-privacy)
+	command+=" --name prod-farm-phoenix-privacy"
+	;;
 *)
-	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg|phoenix-reel-concat|phoenix-html-effects|phoenix-timeline-item} {use1|apse2|euw1}"
+	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg|phoenix-reel-concat|phoenix-html-effects|phoenix-timeline-item|phoenix-privacy} {use1|apse2|euw1}"
 	exit 1
 esac
 
@@ -62,7 +67,7 @@ euw1)
 use1)
 	;;
 *)
-	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg|phoenix-reel-concat|phoenix-html-effects|phoenix-timeline-item} {use1|apse2|euw1}"
+	echo $"Usage $0 {find|reboot} {stream|stream-med|stream-lrg|phoenix-reel-concat|phoenix-html-effects|phoenix-timeline-item|phoenix-privacy} {use1|apse2|euw1}"
 	exit 1
 esac
 echo "$command"
