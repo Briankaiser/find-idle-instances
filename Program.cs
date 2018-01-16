@@ -35,14 +35,13 @@ namespace FixStuckWorkers
         public string Name => $"{InstanceDescription.InstanceId} - {InstanceDescription.Hostname}";
         public InstanceDescription InstanceDescription { get; private set; }
         public double Cpu { get; private set; }
-        public InstanceResult(InstanceDescription instanceDescription, double cpu)
+        public string Reason { get; private set; }
+
+        public InstanceResult(InstanceDescription instanceDescription, string reason, double cpu)
         {
             InstanceDescription = instanceDescription;
             Cpu = cpu;
-        }
-        public override string ToString()
-        {
-            return Name + "\t\t\t" + Cpu.ToString("0.00");
+            Reason = reason;
         }
     }
 
@@ -74,6 +73,8 @@ namespace FixStuckWorkers
     {
         private const double MaxBadCpuPercent = 1.0;
         private const double UnknownCpuPercent = -1;
+        private const double MinStalledCpuPercent = 5.0;
+        private const double MaxStdDevStalledCpuPercent = 0.05;
         private const int MaxMetricConcurrency = 8;
         private const int MetricRetrievalInHours = 3;
         private const int PeriodInMinutes = 10;
@@ -315,19 +316,52 @@ namespace FixStuckWorkers
                     Period = (int)TimeSpan.FromMinutes(PeriodInMinutes).TotalSeconds,
                 };
                 var response = await cwClient.GetMetricStatisticsAsync(request);
-                var max = response.Datapoints.Count < MinServerMetricsToJudge ? UnknownCpuPercent : response.Datapoints.Max(p => p.Average);
+                var max = UnknownCpuPercent;
+                var avg = 0.0d;
+                var stdDev = 0.0d;
+                var count = response.Datapoints.Count;
+                if (count >= MinServerMetricsToJudge)
+                {
+                    // first loop to calculate max and sum
+                    var sum = 0.0d;
+                    foreach (var dp in response.Datapoints)
+                    {
+                        if (dp.Average > max)
+                        {
+                            max = dp.Average;
+                        }
+                        sum += dp.Average;
+                    }
+                    avg = sum / count;
+
+                    // second loop allows us to calculate std deviation
+                    var varianceSum = 0.0d;
+                    foreach (var dp in response.Datapoints)
+                    {
+                        varianceSum += Math.Pow(dp.Average - avg, 2.0d);
+                    }
+                    stdDev = Math.Sqrt(varianceSum / count);
+                }
 
                 if (max == UnknownCpuPercent)
                 {
-                    instanceResults.UnknownInstances.Add(new InstanceResult(instance, max));
+                    instanceResults.UnknownInstances.Add(new InstanceResult(instance, "Unknown CPU", max));
                 }
                 else if (max < MaxBadCpuPercent)
                 {
-                    instanceResults.BadInstances.Add(new InstanceResult(instance, max));
+                    // if the CPU is basically doing nothing
+                    //Console.WriteLine($"LOW  {instance.Hostname}\tMax={max}, Avg={avg}, StdDev={stdDev}");
+                    instanceResults.BadInstances.Add(new InstanceResult(instance, "Low CPU", max));
+                }
+                else if (max > MinStalledCpuPercent && stdDev < MaxStdDevStalledCpuPercent)
+                {
+                    // if the CPU is above a floor (MinStalledCpuPercent) but is essentially flatlined
+                    //Console.WriteLine($"FLAT {instance.Hostname}\tMax={max}, Avg={avg}, StdDev={stdDev}");
+                    instanceResults.BadInstances.Add(new InstanceResult(instance, "Flatlined CPU", stdDev));
                 }
                 else
                 {
-                    instanceResults.GoodInstances.Add(new InstanceResult(instance, max));
+                    instanceResults.GoodInstances.Add(new InstanceResult(instance, null, max));
                 }
 
                 var processed = instanceResults.BadInstances.Count + instanceResults.UnknownInstances.Count +
@@ -409,17 +443,16 @@ namespace FixStuckWorkers
             if (hasBadInstances)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                WriteStat($"Bad Instances ({results.BadInstances.Count})", "CPU%");
-                Console.WriteLine("=====================================================================================");
+                WriteStat($"Bad Instances ({results.BadInstances.Count})", "Reason", "CPU%");
+                Console.WriteLine("===================================================================================================");
                 foreach (var result in results.BadInstances)
                 {
-                    WriteStat(result.Name, result.Cpu);
+                    WriteStat(result.Name, result.Reason, result.Cpu);
                 }
                 Console.WriteLine("");
             }
 
             Console.ForegroundColor = ConsoleColor.White;
-
         }
 
         private static void WriteStat(string label, double stat)
@@ -431,6 +464,21 @@ namespace FixStuckWorkers
         {
             Console.Write(label);
             Console.CursorLeft = (85 - stat.Length);
+            Console.Write(stat);
+            Console.WriteLine();
+        }
+
+        private static void WriteStat(string label, string reason, double stat)
+        {
+            WriteStat(label, reason, stat.ToString("##0.00"));
+        }
+
+        private static void WriteStat(string label, string reason, string stat)
+        {
+            Console.Write(label);
+            Console.CursorLeft = 80;
+            Console.Write(reason);
+            Console.CursorLeft = (99 - stat.Length);
             Console.Write(stat);
             Console.WriteLine();
         }
