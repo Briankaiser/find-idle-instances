@@ -350,13 +350,11 @@ namespace FixStuckWorkers
                 else if (max < MaxBadCpuPercent)
                 {
                     // if the CPU is basically doing nothing
-                    //Console.WriteLine($"LOW  {instance.Hostname}\tMax={max}, Avg={avg}, StdDev={stdDev}");
                     instanceResults.BadInstances.Add(new InstanceResult(instance, "Low CPU", max));
                 }
                 else if (max > MinStalledCpuPercent && stdDev < MaxStdDevStalledCpuPercent)
                 {
                     // if the CPU is above a floor (MinStalledCpuPercent) but is essentially flatlined
-                    //Console.WriteLine($"FLAT {instance.Hostname}\tMax={max}, Avg={avg}, StdDev={stdDev}");
                     instanceResults.BadInstances.Add(new InstanceResult(instance, "Flatlined CPU", stdDev));
                 }
                 else
